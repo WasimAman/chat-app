@@ -3,8 +3,6 @@ package com.chat_application.user;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.UUID;
-
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
