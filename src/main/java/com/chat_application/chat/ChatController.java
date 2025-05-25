@@ -47,9 +47,9 @@ public class ChatController {
                 return ResponseEntity.ok().build();
         }
 
-        @GetMapping("/chat-users/{nickname}")
-        public ResponseEntity<List<ChatUserDto>> getChatUsers(@PathVariable String nickname) {
-                List<ChatUserDto> users = chatMessageService.getChatUsersWithUnseenMessages(nickname);
+        @GetMapping("/chat-users/{userId}")
+        public ResponseEntity<List<ChatUserDto>> getChatUsers(@PathVariable String userId) {
+                List<ChatUserDto> users = chatMessageService.getChatUsersWithUnseenMessages(userId);
                 return ResponseEntity.ok(users);
         }
 }

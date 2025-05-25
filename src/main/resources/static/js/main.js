@@ -1,5 +1,7 @@
 'use strict';
 
+const registerPage = document.querySelector('#username-reg-page');
+const registerForm = document.querySelector('#usernameRegForm');
 const usernamePage = document.querySelector('#username-page');
 const chatPage = document.querySelector('#chat-page');
 const usernameForm = document.querySelector('#usernameForm');
@@ -10,83 +12,94 @@ const chatArea = document.querySelector('#chat-messages');
 const logout = document.querySelector('#logout');
 
 let stompClient = null;
-let nickname = null;
-let fullname = null;
 let selectedUserId = null;
+let user = null;
+let userIdOrEmail = null;
+let password = null;
+
+document.getElementById('showLogin').onclick = () => {
+    registerPage.classList.add('hidden');
+    usernamePage.classList.remove('hidden');
+};
+document.getElementById('showRegister').onclick = () => {
+    usernamePage.classList.add('hidden');
+    registerPage.classList.remove('hidden');
+};
 
 function connect(event) {
-    nickname = document.querySelector('#nickname').value.trim();
-    fullname = document.querySelector('#fullname').value.trim();
+    userIdOrEmail = document.querySelector('#userIdOrEmail').value.trim();
+    password = document.querySelector('#password').value.trim();
 
-    if (nickname && fullname) {
-        usernamePage.classList.add('hidden');
-        chatPage.classList.remove('hidden');
+    console.log(userIdOrEmail);
+    console.log(password);
 
+    if (userIdOrEmail && password) {
         const socket = new SockJS('/ws');
         stompClient = Stomp.over(socket);
 
-        stompClient.connect({}, onConnected, onError);
+        stompClient.connect({}, async () => {
+            // ⬇️ Attempt login AFTER websocket connects
+            const loginResponse = await fetch('/login', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    userIdOrEmail: userIdOrEmail,
+                    password: password
+                })
+            });
+
+            if (loginResponse.ok) {
+                user = await loginResponse.json();
+
+                // ✅ Only show chat UI if login successful
+                usernamePage.classList.add('hidden');
+                chatPage.classList.remove('hidden');
+
+                stompClient.subscribe(`/user/${user.userId}/queue/messages`, onMessageReceived);
+                document.querySelector('#connected-user-fullname').textContent = `${user.fullName}(${user.userId})`;
+
+                // ✅ Fetch chat users
+                try {
+                    const chatUsersResponse = await fetch(`/chat-users/${user.userId}`);
+                    if (chatUsersResponse.ok) {
+                        const chatUsers = await chatUsersResponse.json();
+                        const connectedUsersList = document.getElementById('connectedUsers');
+                        connectedUsersList.innerHTML = '';
+                        chatUsers.forEach(connectedUser => appendUserElement(connectedUser, connectedUsersList));
+                    }
+                } catch (err) {
+                    console.error("Error fetching chat users:", err);
+                }
+
+            } else {
+                // ❌ Failed login — show alert and clear form
+                alert("Invalid credentials. Please try again.");
+                document.querySelector('#userIdOrEmail').value = '';
+                document.querySelector('#password').value = '';
+                stompClient.disconnect(() => console.log('WebSocket disconnected after failed login'));
+            }
+        }, onError);
     }
+
     event.preventDefault();
 }
 
-async function onConnected() {
-    stompClient.subscribe(`/user/${nickname}/queue/messages`, onMessageReceived);
-
-    // Register the connected user as ONLINE
-    stompClient.send("/app/user.addUser",
-        {},
-        JSON.stringify({ nickName: nickname, fullName: fullname, status: 'ONLINE' })
-    );
-
-    document.querySelector('#connected-user-fullname').textContent = fullname;
-
-    // ✅ Fetch all users this user has chatted with earlier
-    try {
-        const response = await fetch(`/chat-users/${nickname}`);
-        if (response.ok) {
-            const chatUsers = await response.json();
-            const connectedUsersList = document.getElementById('connectedUsers');
-            connectedUsersList.innerHTML = ''; // clear old users
-            chatUsers.forEach(user => appendUserElement(user, connectedUsersList));
-        }
-    } catch (err) {
-        console.error("Error fetching chat users:", err);
-    }
-}
-
-
-// async function findAndDisplayConnectedUsers() {
-//     const connectedUsersResponse = await fetch('/users');
-//     let connectedUsers = await connectedUsersResponse.json();
-//     connectedUsers = connectedUsers.filter(user => user.nickName !== nickname);
-//     const connectedUsersList = document.getElementById('connectedUsers');
-//     connectedUsersList.innerHTML = '';
-
-//     connectedUsers.forEach(user => {
-//         appendUserElement(user, connectedUsersList);
-//         if (connectedUsers.indexOf(user) < connectedUsers.length - 1) {
-//             const separator = document.createElement('li');
-//             separator.classList.add('separator');
-//             connectedUsersList.appendChild(separator);
-//         }
-//     });
-// }
-
-function appendUserElement(user, connectedUsersList) {
+function appendUserElement(connectedUser, connectedUsersList) {
     const listItem = document.createElement('li');
     listItem.classList.add('user-item');
-    listItem.id = user.nickName;
+    listItem.id = connectedUser.userId;
 
     const userImage = document.createElement('img');
     userImage.src = 'https://cdn2.momjunction.com/wp-content/uploads/2019/07/Whatsapp-DP-Images-For-Boys-1.jpg.webp';
-    userImage.alt = user.fullName;
+    userImage.alt = connectedUser.fullName;
 
     const usernameSpan = document.createElement('span');
-    usernameSpan.textContent = user.fullName;
+    usernameSpan.textContent = connectedUser.fullName;
 
     const receivedMsgs = document.createElement('span');
-    receivedMsgs.textContent = '0';
+    // receivedMsgs.textContent = '0';
     receivedMsgs.classList.add('nbr-msg', 'hidden');
 
     listItem.appendChild(userImage);
@@ -110,7 +123,7 @@ async function userItemClick(event) {
     selectedUserId = clickedUser.getAttribute('id');
 
     // 1. Mark messages as seen in DB
-    await fetch(`/messages/seen/${selectedUserId}/${nickname}`, { method: 'PUT' });
+    await fetch(`/messages/seen/${selectedUserId}/${user.userId}`, { method: 'PUT' });
 
     // 2. Now fetch and display chat
     await fetchAndDisplayUserChat();
@@ -118,7 +131,7 @@ async function userItemClick(event) {
     // 3. Reset unread count in UI
     const nbrMsg = clickedUser.querySelector('.nbr-msg');
     nbrMsg.classList.add('hidden');
-    nbrMsg.textContent = '0';
+    // nbrMsg.textContent = '0';
 }
 
 
@@ -126,7 +139,7 @@ async function userItemClick(event) {
 function displayMessage(senderId, content) {
     const messageContainer = document.createElement('div');
     messageContainer.classList.add('message');
-    if (senderId === nickname) {
+    if (senderId === user.userId) {
         messageContainer.classList.add('sender');
     } else {
         messageContainer.classList.add('receiver');
@@ -135,13 +148,14 @@ function displayMessage(senderId, content) {
     message.textContent = content;
     messageContainer.appendChild(message);
     chatArea.appendChild(messageContainer);
+    chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 async function fetchAndDisplayUserChat() {
     console.log("************************************");
     console.log(selectedUserId);
     console.log("************************************");
-    const userChatResponse = await fetch(`/messages/${nickname}/${selectedUserId}`);
+    const userChatResponse = await fetch(`/messages/${user.userId}/${selectedUserId}`);
     const userChat = await userChatResponse.json();
     chatArea.innerHTML = '';
     userChat.forEach(chat => {
@@ -161,13 +175,13 @@ function sendMessage(event) {
     const messageContent = messageInput.value.trim();
     if (messageContent && stompClient) {
         const chatMessage = {
-            senderId: nickname,
+            senderId: user.userId,
             recipientId: selectedUserId,
             content: messageInput.value.trim(),
             timestamp: new Date()
         };
         stompClient.send("/app/chat", {}, JSON.stringify(chatMessage));
-        displayMessage(nickname, messageInput.value.trim());
+        displayMessage(user.userId, messageInput.value.trim());
         messageInput.value = '';
     }
     chatArea.scrollTop = chatArea.scrollHeight;
@@ -176,47 +190,52 @@ function sendMessage(event) {
 
 
 async function onMessageReceived(payload) {
-    console.log('Message received', payload);
+    console.log('📩 Message received:', payload);
     const message = JSON.parse(payload.body);
 
-    // If the sender is not in the user list, fetch user details and add dynamically
     let senderUserElement = document.getElementById(message.senderId);
+
     if (!senderUserElement) {
         try {
             const response = await fetch(`/user/${message.senderId}`);
             if (response.ok) {
-                const user = await response.json();
+                const newUser = await response.json();
                 const connectedUsersList = document.getElementById('connectedUsers');
-                appendUserElement(user, connectedUsersList);
+                appendUserElement(newUser, connectedUsersList);
+                senderUserElement = document.getElementById(newUser.userId); // update reference
+            } else {
+                console.error("❌ Failed to fetch user:", message.senderId);
+                return;
             }
         } catch (err) {
-            console.error("Error fetching sender user info:", err);
+            console.error("❌ Error fetching user details:", err);
+            return;
         }
     }
 
-    // If sender is selected, show message
+    // Step 3: If sender is currently selected in chat, display the message directly
     if (selectedUserId && selectedUserId === message.senderId) {
         displayMessage(message.senderId, message.content);
         chatArea.scrollTop = chatArea.scrollHeight;
     }
 
-    // If not selected, show message notification
-    const notifiedUser = document.querySelector(`#${message.senderId}`);
-    if (notifiedUser && !notifiedUser.classList.contains('active')) {
-        const nbrMsg = notifiedUser.querySelector('.nbr-msg');
-        nbrMsg.classList.remove('hidden');
-
-        // Increment unread message count
-        let currentCount = parseInt(nbrMsg.textContent || '0');
-        nbrMsg.textContent = currentCount + 1;
+    // Step 4: If not currently chatting with sender, show unseen message notification
+    if (senderUserElement && !senderUserElement.classList.contains('active')) {
+        const nbrMsg = senderUserElement.querySelector('.nbr-msg');
+        if (nbrMsg) {
+            nbrMsg.classList.remove('hidden');
+            // let currentCount = parseInt(nbrMsg.textContent || '0');
+            // nbrMsg.textContent = currentCount + 1;
+        }
     }
 }
+
 
 
 function onLogout() {
     stompClient.send("/app/user.disconnectUser",
         {},
-        JSON.stringify({ nickName: nickname, fullName: fullname, status: 'OFFLINE' })
+        JSON.stringify({ nickName: user.userId })
     );
     window.location.reload();
 }
@@ -232,35 +251,36 @@ document.getElementById("closeModal").addEventListener("click", function () {
     document.getElementById("addUserModal").classList.add("hidden");
 });
 
+
 document.getElementById("searchUserBtn").addEventListener("click", async function () {
-    const searchNickname = document.getElementById("searchUserInput").value.trim();
-    if (searchNickname === "") {
-        alert("Please enter a nickname to search.");
+    const searchUserId = document.getElementById("searchUserInput").value.trim();
+    if (searchUserId === "") {
+        alert("Please enter userId to search.");
         return;
     }
 
-    if (searchNickname === nickname) {
+    if (searchUserId === user.userId) {
         alert("You cannot chat with yourself.");
         return;
     }
 
     try {
-        const response = await fetch(`/user/${searchNickname}`); // ✅ Call your backend API
+        const response = await fetch(`/user/${searchUserId}`); // ✅ Call your backend API
         if (!response.ok) {
             alert("User not found.");
             return;
         }
 
-        const user = await response.json();
+        const searchedUser = await response.json();
 
         // Check if already in connected users list
-        if (document.getElementById(user.nickName)) {
+        if (document.getElementById(searchedUser.userId)) {
             alert("User is already in the list.");
             return;
         }
 
         const connectedUsersList = document.getElementById('connectedUsers');
-        appendUserElement(user, connectedUsersList);
+        appendUserElement(searchedUser, connectedUsersList);
 
         // Close modal
         document.getElementById("addUserModal").classList.add("hidden");
@@ -271,10 +291,42 @@ document.getElementById("searchUserBtn").addEventListener("click", async functio
     }
 });
 
+const registerUser = async (event) => {
+    event.preventDefault();
 
+    const fullName = document.querySelector('#fullname').value.trim();
+    const email = document.querySelector('#email').value.trim();
+    const password = document.querySelector('#reg-password').value.trim();
 
+    if (!fullName || !email || !password) {
+        alert("Please fill all fields.");
+        return;
+    }
+
+    try {
+        const response = await fetch('/register', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ fullName, email, password })
+        });
+
+        if (response.ok) {
+            alert("Registration successful. You can now log in.");
+            document.getElementById('showLogin').click(); // switch to login page
+        } else {
+            const errorText = await response.text();
+            alert("Registration failed: " + errorText);
+        }
+    } catch (error) {
+        console.error("Error during registration:", error);
+        alert("Something went wrong. Please try again.");
+    }
+};
 
 usernameForm.addEventListener('submit', connect, true); // step 1
+registerForm.addEventListener('submit', registerUser, true)
 messageForm.addEventListener('submit', sendMessage, true);
 logout.addEventListener('click', onLogout, true);
 window.onbeforeunload = () => onLogout();

@@ -9,27 +9,42 @@
 </head>
 
 <body>
+    <div class="user-reg-form" id="username-reg-page">
+        <h2>Register Here</h2>
+        <form id="usernameRegForm">
+            <label for="fullname">FullName:</label>
+            <input type="text" id="fullname" name="fullname" placeholder="Enter fullName" required>
 
-    <!-- <h2>One to One Chat | Spring boot & Websocket | By Alibou</h2> -->
+            <label for="Email">Email:</label>
+            <input type="email" id="email" name="Email" placeholder="Enter Email" required>
 
-    <div class="user-form" id="username-page">
+            <label for="password">password:</label>
+            <input type="password" id="reg-password" name="password" placeholder="Enter Password" required>
+
+            <button type="submit">Register</button>
+        </form>
+        <p id="redirect">Already registered? <span id="showLogin">Login here</span></p>
+    </div>
+
+    <div class="user-form hidden" id="username-page">
         <h2>Enter Chatroom</h2>
         <form id="usernameForm">
-            <label for="nickname">Nickname:</label>
-            <input type="text" id="nickname" name="nickname" required>
+            <label for="userIdOrEmail">ID or Email:</label>
+            <input type="text" id="userIdOrEmail" name="userIdOrEmail" placeholder="Enter ID or Email" required>
 
-            <label for="fullname">Real Name:</label>
-            <input type="text" id="fullname" name="realname" required>
+            <label for="password">password:</label>
+            <input type="password" id="password" name="password" placeholder="Enter Password" required>
 
             <button type="submit">Enter Chatroom</button>
         </form>
+        <p id="redirect">New user? <span id="showRegister">Register here</span></p>
     </div>
 
     <div class="chat-container hidden" id="chat-page">
         <div class="users-list">
             <div class="users-list-container">
-                <div>
-                    <h2>Online Users</h2>
+                <div id="contact-list">
+                    <h2>Contact Users</h2>
                     <a href="javascript:void(0)" id="openAddUserModal">add user</a>
                 </div>
                 <ul id="connectedUsers">
@@ -41,7 +56,7 @@
                         alt="">
                     <p id="connected-user-fullname"></p>
                 </div>
-                <a class="logout" href="javascript:void(0)" id="logout">Logout</a>
+                <a class="logout" href="javascript:void(0)" id="logout" style="color: black;font: bolder;">Logout</a>
             </div>
         </div>
 
@@ -49,7 +64,7 @@
             <div class="modal-content">
                 <span class="close-button" id="closeModal">&times;</span>
                 <h3>Add User</h3>
-                <input type="text" id="searchUserInput" placeholder="Enter user nickname..." />
+                <input type="text" id="searchUserInput" placeholder="Enter user ID..." />
                 <button id="searchUserBtn">Search</button>
             </div>
         </div>
@@ -60,8 +75,8 @@
 
             <form id="messageForm" name="messageForm" class="hidden">
                 <div class="message-input">
-                    <input autocomplete="off" type="text" id="message" placeholder="Type your message...">
-                    <button>Send</button>
+                    <input maxlength="500" autocomplete="off" type="text" id="message" placeholder="Type your message...">
+                    <button id="send-btn">Send</button>
                 </div>
             </form>
         </div>

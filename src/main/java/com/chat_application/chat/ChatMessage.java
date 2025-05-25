@@ -4,7 +4,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -25,7 +25,8 @@ public class ChatMessage {
     private String chatId;
     private String senderId;
     private String recipientId;
+    @Column(length = 500)
     private String content;
     private Date timestamp;
-    private boolean seen; // 👈 new field
+    private boolean seen;
 }

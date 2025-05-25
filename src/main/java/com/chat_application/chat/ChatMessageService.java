@@ -48,7 +48,7 @@ public class ChatMessageService {
         });
     }
 
-    public List<ChatUserDto> getChatUsersWithUnseenMessages(String nickname) {
-        return repository.findChatUsersWithUnseenCount(nickname);
+    public List<ChatUserDto> getChatUsersWithUnseenMessages(String userId) {
+        return repository.findChatUsersWithUnseenCount(userId);
     }
 }

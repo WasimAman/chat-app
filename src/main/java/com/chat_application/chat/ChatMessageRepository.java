@@ -13,15 +13,16 @@ public interface ChatMessageRepository extends JpaRepository<ChatMessage, Long> 
 
     List<ChatMessage> findByRecipientIdAndSeenIsFalse(String recipientId);
 
-    @Query("SELECT new com.chat_application.user.ChatUserDto(u.nickName, u.fullName, " +
-            "SUM(CASE WHEN m.recipientId = :nickname AND m.seen = false THEN 1 ELSE 0 END)) " +
+    @Query("SELECT new com.chat_application.user.ChatUserDto(u.userId, u.fullName, " +
+            "SUM(CASE WHEN m.recipientId = :userId AND m.seen = false THEN 1 ELSE 0 END)) " +
             "FROM ChatMessage m " +
-            "JOIN User u ON u.nickName = CASE " +
-            "   WHEN m.senderId = :nickname THEN m.recipientId " +
+            "JOIN User u ON u.userId = CASE " +
+            "   WHEN m.senderId = :userId THEN m.recipientId " +
             "   ELSE m.senderId " +
             "END " +
-            "WHERE m.senderId = :nickname OR m.recipientId = :nickname " +
-            "GROUP BY u.nickName, u.fullName")
-    List<ChatUserDto> findChatUsersWithUnseenCount(@Param("nickname") String nickname);
+            "WHERE m.senderId = :userId OR m.recipientId = :userId " +
+            "GROUP BY u.userId, u.fullName " +
+            "ORDER BY COUNT(m.timestamp) DESC")
+    List<ChatUserDto> findChatUsersWithUnseenCount(@Param("userId") String userId);
 
 }
